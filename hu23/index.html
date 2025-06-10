@@ -36,7 +36,7 @@
 <option>VBC Wetzikon HU23</option>
 
       </select>
-      <label for="teamEmail">Kontakt E-Mail *</label>
+      <label for="teamEmail">Kontakt E-Mail</label>
       <input type="email" id="teamEmail" required placeholder="beispiel@domain.de">
       <label>Verfügbare Termine *</label>
       <div class="slots" id="slotsContainer"></div>
@@ -45,67 +45,105 @@
     <div id="responseMessage"></div>
   </div>
   <script>
-    // Configuration
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwHeOAzodKSKQ5Sdg28yJXW62Gc8ykduHtiiWwBJ-LCs7xxtUps3BdMEQh9kJ1i64vu/exec';
-    const validSheets = ['HU23'];
-
-    // Determine sheet from URL path or query
-    const params = new URLSearchParams(window.location.search);
-    let sheetParam = params.get('sheet') || '';
-    if (!sheetParam) {
-      // Try path segment
-      const pathPart = window.location.pathname.split('/').filter(Boolean).pop();
-      if (validSheets.includes(pathPart)) sheetParam = pathPart;
-    }
-    if (!validSheets.includes(sheetParam)) sheetParam = 'H3';
-
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwHeOAzodKSKQ5Sdg28yJXW62Gc8ykduHtiiWwBJ-LCs7xxtUps3BdMEQh9kJ1i64vu/exec?sheet=HU23';
     let slots = [];
     const weekdays = ['So','Mo','Di','Mi','Do','Fr','Sa'];
 
     document.addEventListener('DOMContentLoaded', loadSlots);
+
     function loadSlots() {
-      fetch(`${WEB_APP_URL}?action=getSlots&sheetName=${encodeURIComponent(sheetParam)}`)
+      fetch(`${WEB_APP_URL}?action=getSlots`)
         .then(r => r.json())
-        .then(data => { slots = data; renderSlots(); })
+        .then(data => {
+          slots = data;
+          renderSlots();
+        })
         .catch(() => showError('Fehler beim Laden der Termine.'));
     }
+
     function renderSlots() {
       const container = document.getElementById('slotsContainer');
       container.innerHTML = '';
-      clearResponse();
-      if (!slots.length) return showError('Keine freien Termine verfügbar.');
+      document.getElementById('responseMessage').textContent = '';
+
+      if (!slots.length) {
+        showError('Keine freien Termine verfügbar.');
+        return;
+      }
+
       document.getElementById('bookBtn').disabled = true;
+
       slots.forEach(slot => {
-        const [dd, mm, yyyy] = slot.date.split('/');
-        const dayName = weekdays[new Date(yyyy, mm-1, dd).getDay()];
-        const id = `slot_${slot.id}`;
         const card = document.createElement('div');
         card.className = 'slot-card';
-        card.innerHTML = `
-          <input type="radio" name="slot" id="${id}" value="${slot.id}" />
-          <label for="${id}"><strong>${slot.date} (${dayName})</strong><br>${slot.time}</label>
-        `;
-        card.querySelector('input').addEventListener('change', () => {
+
+        const radio = document.createElement('input');
+        radio.type  = 'radio';
+        radio.name  = 'slot';
+        radio.id    = `slot_${slot.id}`;
+        radio.value = slot.id;
+        radio.addEventListener('change', () => {
           document.getElementById('bookBtn').disabled = false;
         });
+
+        // Wochentag ermitteln
+        const [dd, mm, yyyy] = slot.date.split('/');
+        const dateObj = new Date(yyyy, mm - 1, dd);
+        const dayName = weekdays[dateObj.getDay()];
+
+        const label = document.createElement('label');
+        label.htmlFor = radio.id;
+        label.innerHTML = `<strong>${slot.date} (${dayName})</strong><br>${slot.time}`;
+
+        card.appendChild(radio);
+        card.appendChild(label);
         container.appendChild(card);
       });
     }
+
     function submitForm() {
       const team = document.getElementById('teamName').value;
       const email = document.getElementById('teamEmail').value.trim();
       const selected = document.querySelector('input[name="slot"]:checked');
-      if (!team || !email || !selected) return showError('Bitte alle Felder ausfüllen und einen Termin wählen.');
-      const btn = document.getElementById('bookBtn'); btn.disabled = true; btn.textContent = 'Bucht…';
-      const qs = new URLSearchParams({ action:'book', slotId:selected.value, teamName:team, teamEmail:email, sheetName:sheetParam });
-      fetch(`${WEB_APP_URL}?${qs}`)
-        .then(r=>r.json())
-        .then(res=>{ if(res.error) showError(`Fehler: ${res.error}`); else showSuccess(res.message); btn.textContent='Buchen'; btn.disabled=true; loadSlots(); })
-        .catch(()=>showError('Kritischer Fehler beim Buchen.'));
+
+      if (!team || !email || !selected) {
+        showError('Bitte alle Felder ausfüllen und einen Termin wählen.');
+        return;
+      }
+
+      const btn = document.getElementById('bookBtn');
+      btn.disabled   = true;
+      btn.textContent = 'Bucht…';
+
+      const params = new URLSearchParams({
+        action:    'book',
+        slotId:    selected.value,
+        teamName:  team,
+        teamEmail: email
+      });
+
+      fetch(`${WEB_APP_URL}?${params}`)
+        .then(r => r.json())
+        .then(resp => {
+          if (resp.error) showError(`Fehler: ${resp.error}`);
+          else showSuccess(resp.message);
+          btn.textContent = 'Buchen';
+          btn.disabled = true;
+          loadSlots();
+        })
+        .catch(() => showError('Kritischer Fehler beim Buchen.'));
     }
-    function showError(msg){ const e=document.getElementById('responseMessage'); e.textContent=msg; e.className='error'; }
-    function showSuccess(msg){ const e=document.getElementById('responseMessage'); e.textContent=msg; e.className='success'; }
-    function clearResponse(){ const e=document.getElementById('responseMessage'); e.textContent=''; e.className=''; }
+
+    function showError(msg) {
+      const el = document.getElementById('responseMessage');
+      el.textContent = msg;
+      el.className   = 'error';
+    }
+    function showSuccess(msg) {
+      const el = document.getElementById('responseMessage');
+      el.textContent = msg;
+      el.className   = 'success';
+    }
   </script>
 </body>
 </html>
