@@ -1,92 +1,220 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-  <title>Volleyball Slot Booking</title>
+  <meta charset="UTF-8">
+  <title>Volleyball-Spielbuchung</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; }
-    form { display: flex; flex-direction: column; }
-    label { margin-top: 10px; }
-    input, select, button { padding: 8px; margin-top: 5px; font-size: 1em; }
-    button { margin-top: 20px; background-color: #007bff; color: white; border: none; cursor: pointer; }
-    button:disabled { background-color: #cccccc; cursor: not-allowed; }
-    #responseMessage { font-weight: bold; margin-top: 15px; padding: 10px; border-radius: 5px; }
-    .success { background-color: #d4edda; color: #155724; }
-    .error   { background-color: #f8d7da; color: #721c24; }
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+    .container {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      max-width: 480px;
+      width: 100%;
+      margin: 40px 10px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 15px;
+      text-align: center;
+      color: #333;
+    }
+    label {
+      margin-top: 12px;
+      font-weight: bold;
+      color: #555;
+    }
+    input[type=text],
+    input[type=email],
+    input[type=date] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .times {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .times label {
+      flex: 1 1 45%;
+      background: #e9ecef;
+      border-radius: 4px;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: background 0.2s;
+    }
+    .times input[type=radio] {
+      display: none;
+    }
+    .times input[type=radio]:checked + span {
+      background: #007bff;
+      color: #fff;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+    #responseMessage {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .success { background: #d4edda; color: #155724; }
+    .error   { background: #f8d7da; color: #721c24; }
   </style>
 </head>
 <body>
-  <h2>Select your volleyball game slot:</h2>
-  <form id="bookingForm">
-    <label for="teamName">Team Name:</label>
-    <input type="text" id="teamName" required>
-    
-    <label for="teamEmail">Team Email:</label>
-    <input type="email" id="teamEmail" required>
-    
-    <label for="slotSelect">Slot:</label>
-    <select id="slotSelect" required></select>
-    
-    <button type="button" onclick="submitForm()">Book Slot</button>
-  </form>
+  <div class="container">
+    <h1>Volleyball-Spiel buchen</h1>
+    <form id="bookingForm">
+      <label for="teamName">Teamname *</label>
+      <input type="text" id="teamName" required placeholder="z. B. ‚VolleyStars‘">
 
-  <p id="responseMessage"></p>
+      <label for="teamEmail">Team-E-Mail *</label>
+      <input type="email" id="teamEmail" required placeholder="z. B. ‚team@beispiel.de‘">
+
+      <label for="datePicker">Datum auswählen *</label>
+      <input type="date" id="datePicker" required>
+
+      <label>Uhrzeit auswählen *</label>
+      <div class="times" id="timesContainer">
+        <!-- Zeiten als Radio-Buttons -->
+      </div>
+
+      <button type="button" id="bookBtn" onclick="submitForm()" disabled>Buchen</button>
+    </form>
+    <div id="responseMessage"></div>
+  </div>
 
   <script>
-    // ← your deployed Web App "exec" URL here
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwHeOAzodKSKQ5Sdg28yJXW62Gc8ykduHtiiWwBJ-LCs7xxtUps3BdMEQh9kJ1i64vu/exec';
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyk…/exec';
+    let slotsByDate = {};
 
     function populateSlots() {
-      // GET with action=getSlots
       fetch(`${WEB_APP_URL}?action=getSlots`)
         .then(r => r.json())
         .then(slots => {
-          const select = document.getElementById('slotSelect');
-          select.innerHTML = '';
+          slotsByDate = {}; // neu initialisieren
+          slots.forEach(slot => {
+            if (!slotsByDate[slot.date]) slotsByDate[slot.date] = [];
+            slotsByDate[slot.date].push(slot);
+          });
 
-          if (!slots.length) {
-            const opt = document.createElement('option');
-            opt.text     = "No available slots";
-            opt.disabled = true;
-            select.add(opt);
-            document.querySelector('button').disabled = true;
+          const dateInput = document.getElementById('datePicker');
+          const dates = Object.keys(slotsByDate).sort((a,b) => {
+            // dd/MM/yyyy → yyyy-mm-dd zum Vergleich
+            const [d1,m1,y1] = a.split('/');
+            const [d2,m2,y2] = b.split('/');
+            return new Date(`${y1}-${m1}-${d1}`) - new Date(`${y2}-${m2}-${d2}`);
+          });
+
+          if (dates.length === 0) {
+            dateInput.disabled = true;
+            document.getElementById('responseMessage').textContent = 'Keine freien Termine verfügbar.';
+            document.getElementById('responseMessage').className = 'error';
             return;
           }
 
-          document.querySelector('button').disabled = false;
-          slots.forEach(slot => {
-            const opt = document.createElement('option');
-            opt.value = slot.id;
-            opt.text  = `${slot.date} – ${slot.time}`;
-            select.add(opt);
+          dateInput.disabled = false;
+          // setze min/max
+          dateInput.min = toISO(dates[0]);
+          dateInput.max = toISO(dates[dates.length -1]);
+          dateInput.value = toISO(dates[0]);
+          renderTimes(dates[0]);
+
+          dateInput.addEventListener('change', () => {
+            const selected = fromISO(dateInput.value);
+            renderTimes(selected);
           });
         })
         .catch(err => {
-          console.error('Error fetching slots:', err);
+          console.error(err);
           const msg = document.getElementById('responseMessage');
-          msg.textContent = 'Error loading slots. Try again later.';
+          msg.textContent = 'Fehler beim Laden der Termine.';
           msg.className = 'error';
         });
+    }
+
+    function renderTimes(date) {
+      const container = document.getElementById('timesContainer');
+      container.innerHTML = '';
+      const times = slotsByDate[date] || [];
+
+      if (times.length === 0) {
+        container.innerHTML = '<em>Keine Zeiten an diesem Datum.</em>';
+        document.getElementById('bookBtn').disabled = true;
+        return;
+      }
+
+      times.forEach(slot => {
+        const id = `time_${slot.id}`;
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'slot';
+        radio.id = id;
+        radio.value = slot.id;
+
+        const span = document.createElement('span');
+        span.textContent = slot.time;
+        span.addEventListener('click', () => {
+          radio.checked = true;
+          document.getElementById('bookBtn').disabled = false;
+        });
+
+        container.appendChild(radio);
+        container.appendChild(span);
+      });
+      // initial disable until user picks
+      document.getElementById('bookBtn').disabled = true;
     }
 
     function submitForm() {
       const name  = document.getElementById('teamName').value.trim();
       const email = document.getElementById('teamEmail').value.trim();
-      const slot  = document.getElementById('slotSelect').value;
+      const radio = document.querySelector('input[name=slot]:checked');
 
-      if (!name || !email) {
-        alert('Please fill in both Team Name and Team Email.');
+      if (!name || !email || !radio) {
+        alert('Bitte alle Felder ausfüllen und eine Zeit wählen.');
         return;
       }
 
-      // disable UI while booking
-      const btn = document.querySelector('button');
+      const btn = document.getElementById('bookBtn');
       btn.disabled = true;
-      btn.textContent = 'Booking…';
+      btn.textContent = 'Bucht...';
 
-      // build query-string for booking
       const params = new URLSearchParams({
         action:    'book',
-        slotId:    slot,
+        slotId:    radio.value,
         teamName:  name,
         teamEmail: email
       });
@@ -94,26 +222,32 @@
       fetch(`${WEB_APP_URL}?${params}`)
         .then(r => r.json())
         .then(data => {
-          const resp = document.getElementById('responseMessage');
+          const msg = document.getElementById('responseMessage');
           if (data.error) {
-            resp.textContent = `Error: ${data.error}`;
-            resp.className   = 'error';
+            msg.textContent = `Fehler: ${data.error}`;
+            msg.className = 'error';
           } else {
-            resp.textContent = data.message;
-            resp.className   = 'success';
+            msg.textContent = data.message;
+            msg.className = 'success';
           }
-          btn.textContent = 'Book Slot';
-          // re-populate (and auto-disable button if no more slots)
+          btn.textContent = 'Buchen';
           populateSlots();
         })
         .catch(err => {
-          console.error('Booking error:', err);
-          const resp = document.getElementById('responseMessage');
-          resp.textContent = 'Critical error – could not book.';
-          resp.className   = 'error';
-          btn.disabled     = false;
-          btn.textContent  = 'Book Slot';
+          console.error(err);
+          const msg = document.getElementById('responseMessage');
+          msg.textContent = 'Kritischer Fehler beim Buchen.';
+          msg.className = 'error';
+          btn.disabled = false;
+          btn.textContent = 'Buchen';
         });
+    }
+
+    function toISO(dmy) {
+      const [d,m,y] = dmy.split('/'); return `${y}-${m}-${d}`;
+    }
+    function fromISO(iso) {
+      const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`;
     }
 
     document.addEventListener('DOMContentLoaded', populateSlots);
