@@ -35,8 +35,7 @@
       font-weight: bold;
       color: #555;
     }
-    input[type="text"],
-    input[type="email"] {
+    select, input[type="email"] {
       width: 100%;
       padding: 8px;
       margin-top: 6px;
@@ -100,19 +99,29 @@
 <body>
   <div class="container">
     <h1>Volleyball-Slot buchen</h1>
-    <form id="bookingForm">
-      <label for="teamName">Teamname *</label>
-      <input type="text" id="teamName" required placeholder="z. B. ‚VolleyStars‘">
+    <form id="bookingForm" onsubmit="submitForm(); return false;">
+      <label for="teamName">Team auswählen *</label>
+      <select id="teamName" required>
+        <option value="">-- Bitte wählen --</option>
+        <option>Volley Oerlikon H2</option>
+        <option>VBC Rämi H2</option>
+        <option>VBC Wetzikon H2</option>
+        <option>VBC Volewa Wald H1</option>
+        <option>VBC Voléro Zürich 4</option>
+        <option>Volley Uster H2</option>
+        <option>VBC Stäfa H1</option>
+        <option>VC Tornado Adliswil H1</option>
+      </select>
 
       <label for="teamEmail">Team-E-Mail *</label>
-      <input type="email" id="teamEmail" required placeholder="z. B. ‚team@beispiel.de‘">
+      <input type="email" id="teamEmail" required placeholder="beispiel@domain.de">
 
       <label>Verfügbare Termine *</label>
       <div class="slots" id="slotsContainer">
         <!-- Slot-Karten werden hier eingefügt -->
       </div>
 
-      <button type="button" id="bookBtn" onclick="submitForm()" disabled>Buchen</button>
+      <button type="submit" id="bookBtn" disabled>Buchen</button>
     </form>
     <div id="responseMessage"></div>
   </div>
@@ -137,6 +146,7 @@
     function renderSlots() {
       const container = document.getElementById('slotsContainer');
       container.innerHTML = '';
+      document.getElementById('responseMessage').textContent = '';
 
       if (!slots.length) {
         showError('Keine freien Termine verfügbar.');
@@ -174,12 +184,12 @@
     }
 
     function submitForm() {
-      const name     = document.getElementById('teamName').value.trim();
-      const email    = document.getElementById('teamEmail').value.trim();
+      const team = document.getElementById('teamName').value;
+      const email = document.getElementById('teamEmail').value.trim();
       const selected = document.querySelector('input[name="slot"]:checked');
 
-      if (!name || !email || !selected) {
-        alert('Bitte alle Felder ausfüllen und einen Termin wählen.');
+      if (!team || !email || !selected) {
+        showError('Bitte alle Felder ausfüllen und einen Termin wählen.');
         return;
       }
 
@@ -190,11 +200,32 @@
       const params = new URLSearchParams({
         action:    'book',
         slotId:    selected.value,
-        teamName:  name,
+        teamName:  team,
         teamEmail: email
       });
 
       fetch(`${WEB_APP_URL}?${params}`)
         .then(r => r.json())
         .then(resp => {
-          if (res
+          if (resp.error) showError(`Fehler: ${resp.error}`);
+          else showSuccess(resp.message);
+          btn.textContent = 'Buchen';
+          btn.disabled = true;
+          loadSlots();
+        })
+        .catch(() => showError('Kritischer Fehler beim Buchen.'));
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('responseMessage');
+      el.textContent = msg;
+      el.className   = 'error';
+    }
+    function showSuccess(msg) {
+      const el = document.getElementById('responseMessage');
+      el.textContent = msg;
+      el.className   = 'success';
+    }
+  </script>
+</body>
+</html>
