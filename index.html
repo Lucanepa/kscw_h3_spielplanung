@@ -120,6 +120,7 @@
   <script>
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwHeOAzodKSKQ5Sdg28yJXW62Gc8ykduHtiiWwBJ-LCs7xxtUps3BdMEQh9kJ1i64vu/exec';
     let slots = [];
+    const weekdays = ['So','Mo','Di','Mi','Do','Fr','Sa'];
 
     document.addEventListener('DOMContentLoaded', loadSlots);
 
@@ -157,9 +158,14 @@
           document.getElementById('bookBtn').disabled = false;
         });
 
+        // Wochentag ermitteln
+        const [dd, mm, yyyy] = slot.date.split('/');
+        const dateObj = new Date(yyyy, mm - 1, dd);
+        const dayName = weekdays[dateObj.getDay()];
+
         const label = document.createElement('label');
         label.htmlFor = radio.id;
-        label.innerHTML = `<strong>${slot.date}</strong><br>${slot.time}`;
+        label.innerHTML = `<strong>${slot.date} (${dayName})</strong><br>${slot.time}`;
 
         card.appendChild(radio);
         card.appendChild(label);
@@ -191,25 +197,4 @@
       fetch(`${WEB_APP_URL}?${params}`)
         .then(r => r.json())
         .then(resp => {
-          if (resp.error) showError(`Fehler: ${resp.error}`);
-          else showSuccess(resp.message);
-          btn.textContent = 'Buchen';
-          btn.disabled = true;
-          loadSlots();
-        })
-        .catch(() => showError('Kritischer Fehler beim Buchen.'));
-    }
-
-    function showError(msg) {
-      const el = document.getElementById('responseMessage');
-      el.textContent = msg;
-      el.className   = 'error';
-    }
-    function showSuccess(msg) {
-      const el = document.getElementById('responseMessage');
-      el.textContent = msg;
-      el.className   = 'success';
-    }
-  </script>
-</body>
-</html>
+          if (res
