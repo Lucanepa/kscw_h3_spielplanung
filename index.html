@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Volleyball Slot Booking</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; }
+    form { display: flex; flex-direction: column; }
+    label { margin-top: 10px; }
+    input, select, button { padding: 8px; margin-top: 5px; font-size: 1em; }
+    button { margin-top: 20px; background-color: #007bff; color: white; border: none; cursor: pointer; }
+    button:disabled { background-color: #cccccc; cursor: not-allowed; }
+    #responseMessage { font-weight: bold; margin-top: 15px; padding: 10px; border-radius: 5px; }
+    .success { background-color: #d4edda; color: #155724; }
+    .error { background-color: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+  <h2>Select your volleyball game slot:</h2>
+  <form id="bookingForm">
+    <label for="teamName">Team Name:</label>
+    <input type="text" id="teamName" required>
+    
+    <label for="teamEmail">Team Email:</label>
+    <input type="email" id="teamEmail" required>
+    
+    <label for="slotSelect">Slot:</label>
+    <select id="slotSelect" required></select>
+    
+    <button type="button" onclick="submitForm()">Book Slot</button>
+  </form>
+
+  <p id="responseMessage"></p>
+
+  <script>
+    // VERY IMPORTANT: PASTE YOUR DEPLOYED WEB APP URL HERE
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyh_Ez0DvyyJToNVzyrB1gphpAJ2TnFUCFhUcKX2JM3KMLjmLFq8dECaIbD_XVDMlxL/exec';
+
+    function populateSlots() {
+      fetch(WEB_APP_URL)
+        .then(response => response.json())
+        .then(slots => {
+          let select = document.getElementById('slotSelect');
+          select.innerHTML = ''; 
+
+          if (slots.length === 0) {
+            let option = document.createElement('option');
+            option.text = "No available slots";
+            option.disabled = true;
+            select.add(option);
+            document.querySelector('button').disabled = true;
+            return;
+          }
+
+          document.querySelector('button').disabled = false;
+
+          slots.forEach(slot => {
+            let option = document.createElement('option');
+            option.value = slot.id;
+            option.text = `${slot.date} - ${slot.time}`;
+            select.add(option);
+          });
+        })
+        .catch(error => {
+            console.error('Error fetching slots:', error);
+            document.getElementById('responseMessage').textContent = 'Error loading slots. Please try again later.';
+            document.getElementById('responseMessage').className = 'error';
+        });
+    }
+
+    function submitForm() {
+      const teamName = document.getElementById('teamName').value;
+      const teamEmail = document.getElementById('teamEmail').value;
+      if (!teamName || !teamEmail) {
+        alert('Please fill in both Team Name and Team Email.');
+        return;
+      }
+
+      const button = document.querySelector('button');
+      button.disabled = true;
+      button.textContent = 'Booking...';
+      
+      const bookingData = {
+        slotId: document.getElementById('slotSelect').value,
+        teamName: teamName,
+        teamEmail: teamEmail
+      };
+
+      fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bookingData)
+      })
+      .then(response => response.json())
+      .then(data => {
+        const responseEl = document.getElementById('responseMessage');
+        if (data.error) {
+            responseEl.textContent = 'Error: ' + data.error;
+            responseEl.className = 'error';
+        } else {
+            responseEl.textContent = data.message;
+            responseEl.className = 'success';
+            // Refresh the slot list
+            populateSlots(); 
+        }
+        button.textContent = 'Book Slot'; // Button text reset in both cases
+        // The button remains disabled if no slots are left, handled by populateSlots()
+      })
+      .catch(error => {
+        console.error('Error during booking:', error);
+        document.getElementById('responseMessage').textContent = 'A critical error occurred. Could not book slot.';
+        document.getElementById('responseMessage').className = 'error';
+        button.disabled = false;
+        button.textContent = 'Book Slot';
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', populateSlots);
+  </script>
+</body>
+</html>
