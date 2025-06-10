@@ -25,17 +25,18 @@
   <div class="container">
     <h1>KSCW HU23 Spiel Buchung</h1>
     <form id="bookingForm" onsubmit="submitForm(); return false;">
-      <label for="teamName">Team auswählen *</label>
-      <select id="teamName" required>
-        <option value="">-- Bitte wählen --</option>
-       <option> VBC Voléro Zürich 1</option>
-<option>VBC Rämi</option>
-<option>VBC Limmattal</option>
-        <option>VBC Limmattal</option>
-<option>VBC Wetzikon HU23</option>
-<option>VBC Wetzikon HU23</option>
 
-      </select>
+<label for="teamName">Team auswählen *</label>
+<select id="teamName" required>
+  <option value="">-- Bitte wählen --</option>
+  <option value="VBC Limmattal_1">VBC Limmattal Game 1</option>
+  <option value="VBC Limmattal_2">VBC Limmattal Game 2</option>
+  <option value="VBC Wetzikon HU23_1">VBC Wetzikon HU23 Game 1</option>
+  <option value="VBC Wetzikon HU23_2">VBC Wetzikon HU23 Game 2</option>
+  <option value="Wädivolley HU23">Wädivolley HU23</option>
+  <option value="VBC Rämi">VBC Rämi</option>
+  <option value="VBC Voléro Zürich 1">VBC Voléro Zürich 1</option>
+</select>
       <label for="teamEmail">Kontakt E-Mail</label>
       <input type="email" id="teamEmail" required placeholder="beispiel@domain.de">
       <label>Verfügbare Termine *</label>
@@ -60,7 +61,15 @@
         })
         .catch(() => showError('Fehler beim Laden der Termine.'));
     }
-
+function removeTeamOption(teamName) {
+  const select = document.getElementById('teamName');
+  const opt = select.querySelector(`option[value="${teamName}"]`);
+  if (opt) {
+    select.removeChild(opt);
+  }
+  // reset selection
+  select.value = '';
+}
     function renderSlots() {
       const container = document.getElementById('slotsContainer');
       container.innerHTML = '';
@@ -115,23 +124,29 @@
       btn.disabled   = true;
       btn.textContent = 'Bucht…';
 
-      const params = new URLSearchParams({
-        action:    'book',
-        slotId:    selected.value,
-        teamName:  team,
-        teamEmail: email
-      });
+      
+  const params = new URLSearchParams({
+    action:    'book',
+    slotId:    selected.value,
+    teamName:  team,
+    teamEmail: email
+  });
 
-      fetch(`${WEB_APP_URL}?${params}`)
-        .then(r => r.json())
-        .then(resp => {
-          if (resp.error) showError(`Fehler: ${resp.error}`);
-          else showSuccess(resp.message);
-          btn.textContent = 'Buchen';
-          btn.disabled = true;
-          loadSlots();
-        })
-        .catch(() => showError('Kritischer Fehler beim Buchen.'));
+      fetch(`${WEB_APP_URL}&${params}`)
+  .then(r => r.json())
+  .then(resp => {
+    if (resp.error) {
+      showError(`Fehler: ${resp.error}`);
+    } else {
+      showSuccess(resp.message);
+      // remove the just-booked team from the dropdown
+      removeTeamOption(team);
+    }
+    btn.textContent = 'Buchen';
+    btn.disabled = true;
+    loadSlots();
+  })
+  .catch(() => showError('Kritischer Fehler beim Buchen.'));
     }
 
     function showError(msg) {
