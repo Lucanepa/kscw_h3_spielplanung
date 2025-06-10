@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Volleyball-Spielbuchung</title>
+  <title>Volleyball-Slot Buchung</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, sans-serif;
@@ -19,24 +19,24 @@
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       padding: 20px;
-      max-width: 480px;
+      max-width: 500px;
       width: 100%;
       margin: 40px 10px;
     }
     h1 {
       font-size: 1.8rem;
-      margin-bottom: 15px;
+      margin-bottom: 20px;
       text-align: center;
       color: #333;
     }
     label {
+      display: block;
       margin-top: 12px;
       font-weight: bold;
       color: #555;
     }
-    input[type=text],
-    input[type=email],
-    input[type=date] {
+    input[type="text"],
+    input[type="email"] {
       width: 100%;
       padding: 8px;
       margin-top: 6px;
@@ -44,38 +44,42 @@
       border-radius: 4px;
       font-size: 1rem;
     }
-    .times {
+    .slots {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px,1fr));
+      gap: 10px;
       margin-top: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
     }
-    .times label {
-      flex: 1 1 45%;
-      background: #e9ecef;
-      border-radius: 4px;
-      padding: 8px;
-      text-align: center;
-      cursor: pointer;
-      font-size: 0.95rem;
-      transition: background 0.2s;
+    .slot-card {
+      position: relative;
     }
-    .times input[type=radio] {
+    .slot-card input[type=radio] {
       display: none;
     }
-    .times input[type=radio]:checked + span {
+    .slot-card label {
+      display: block;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #e9ecef;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .slot-card input[type=radio]:checked + label {
       background: #007bff;
       color: #fff;
+      border-color: #0056b3;
     }
     button {
       width: 100%;
       padding: 12px;
       margin-top: 20px;
       font-size: 1rem;
-      border: none;
-      border-radius: 4px;
       background: #007bff;
       color: #fff;
+      border: none;
+      border-radius: 4px;
       cursor: pointer;
       transition: background 0.2s;
     }
@@ -95,7 +99,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Volleyball-Spiel buchen</h1>
+    <h1>Volleyball-Slot buchen</h1>
     <form id="bookingForm">
       <label for="teamName">Teamname *</label>
       <input type="text" id="teamName" required placeholder="z. B. ‚VolleyStars‘">
@@ -103,12 +107,9 @@
       <label for="teamEmail">Team-E-Mail *</label>
       <input type="email" id="teamEmail" required placeholder="z. B. ‚team@beispiel.de‘">
 
-      <label for="datePicker">Datum auswählen *</label>
-      <input type="date" id="datePicker" required>
-
-      <label>Uhrzeit auswählen *</label>
-      <div class="times" id="timesContainer">
-        <!-- Zeiten als Radio-Buttons -->
+      <label>Verfügbare Termine *</label>
+      <div class="slots" id="slotsContainer">
+        <!-- Slot-Karten werden hier eingefügt -->
       </div>
 
       <button type="button" id="bookBtn" onclick="submitForm()" disabled>Buchen</button>
@@ -117,140 +118,98 @@
   </div>
 
   <script>
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyk…/exec';
-    let slotsByDate = {};
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwHeOAzodKSKQ5Sdg28yJXW62Gc8ykduHtiiWwBJ-LCs7xxtUps3BdMEQh9kJ1i64vu/exec';
+    let slots = [];
 
-    function populateSlots() {
+    document.addEventListener('DOMContentLoaded', loadSlots);
+
+    function loadSlots() {
       fetch(`${WEB_APP_URL}?action=getSlots`)
         .then(r => r.json())
-        .then(slots => {
-          slotsByDate = {}; // neu initialisieren
-          slots.forEach(slot => {
-            if (!slotsByDate[slot.date]) slotsByDate[slot.date] = [];
-            slotsByDate[slot.date].push(slot);
-          });
-
-          const dateInput = document.getElementById('datePicker');
-          const dates = Object.keys(slotsByDate).sort((a,b) => {
-            // dd/MM/yyyy → yyyy-mm-dd zum Vergleich
-            const [d1,m1,y1] = a.split('/');
-            const [d2,m2,y2] = b.split('/');
-            return new Date(`${y1}-${m1}-${d1}`) - new Date(`${y2}-${m2}-${d2}`);
-          });
-
-          if (dates.length === 0) {
-            dateInput.disabled = true;
-            document.getElementById('responseMessage').textContent = 'Keine freien Termine verfügbar.';
-            document.getElementById('responseMessage').className = 'error';
-            return;
-          }
-
-          dateInput.disabled = false;
-          // setze min/max
-          dateInput.min = toISO(dates[0]);
-          dateInput.max = toISO(dates[dates.length -1]);
-          dateInput.value = toISO(dates[0]);
-          renderTimes(dates[0]);
-
-          dateInput.addEventListener('change', () => {
-            const selected = fromISO(dateInput.value);
-            renderTimes(selected);
-          });
+        .then(data => {
+          slots = data;
+          renderSlots();
         })
-        .catch(err => {
-          console.error(err);
-          const msg = document.getElementById('responseMessage');
-          msg.textContent = 'Fehler beim Laden der Termine.';
-          msg.className = 'error';
-        });
+        .catch(() => showError('Fehler beim Laden der Termine.'));
     }
 
-    function renderTimes(date) {
-      const container = document.getElementById('timesContainer');
+    function renderSlots() {
+      const container = document.getElementById('slotsContainer');
       container.innerHTML = '';
-      const times = slotsByDate[date] || [];
 
-      if (times.length === 0) {
-        container.innerHTML = '<em>Keine Zeiten an diesem Datum.</em>';
-        document.getElementById('bookBtn').disabled = true;
+      if (!slots.length) {
+        showError('Keine freien Termine verfügbar.');
         return;
       }
 
-      times.forEach(slot => {
-        const id = `time_${slot.id}`;
-        const radio = document.createElement('input');
-        radio.type = 'radio';
-        radio.name = 'slot';
-        radio.id = id;
-        radio.value = slot.id;
+      document.getElementById('bookBtn').disabled = true;
 
-        const span = document.createElement('span');
-        span.textContent = slot.time;
-        span.addEventListener('click', () => {
-          radio.checked = true;
+      slots.forEach(slot => {
+        const card = document.createElement('div');
+        card.className = 'slot-card';
+
+        const radio = document.createElement('input');
+        radio.type  = 'radio';
+        radio.name  = 'slot';
+        radio.id    = `slot_${slot.id}`;
+        radio.value = slot.id;
+        radio.addEventListener('change', () => {
           document.getElementById('bookBtn').disabled = false;
         });
 
-        container.appendChild(radio);
-        container.appendChild(span);
+        const label = document.createElement('label');
+        label.htmlFor = radio.id;
+        label.innerHTML = `<strong>${slot.date}</strong><br>${slot.time}`;
+
+        card.appendChild(radio);
+        card.appendChild(label);
+        container.appendChild(card);
       });
-      // initial disable until user picks
-      document.getElementById('bookBtn').disabled = true;
     }
 
     function submitForm() {
-      const name  = document.getElementById('teamName').value.trim();
-      const email = document.getElementById('teamEmail').value.trim();
-      const radio = document.querySelector('input[name=slot]:checked');
+      const name     = document.getElementById('teamName').value.trim();
+      const email    = document.getElementById('teamEmail').value.trim();
+      const selected = document.querySelector('input[name="slot"]:checked');
 
-      if (!name || !email || !radio) {
-        alert('Bitte alle Felder ausfüllen und eine Zeit wählen.');
+      if (!name || !email || !selected) {
+        alert('Bitte alle Felder ausfüllen und einen Termin wählen.');
         return;
       }
 
       const btn = document.getElementById('bookBtn');
-      btn.disabled = true;
-      btn.textContent = 'Bucht...';
+      btn.disabled   = true;
+      btn.textContent = 'Bucht…';
 
       const params = new URLSearchParams({
         action:    'book',
-        slotId:    radio.value,
+        slotId:    selected.value,
         teamName:  name,
         teamEmail: email
       });
 
       fetch(`${WEB_APP_URL}?${params}`)
         .then(r => r.json())
-        .then(data => {
-          const msg = document.getElementById('responseMessage');
-          if (data.error) {
-            msg.textContent = `Fehler: ${data.error}`;
-            msg.className = 'error';
-          } else {
-            msg.textContent = data.message;
-            msg.className = 'success';
-          }
+        .then(resp => {
+          if (resp.error) showError(`Fehler: ${resp.error}`);
+          else showSuccess(resp.message);
           btn.textContent = 'Buchen';
-          populateSlots();
+          btn.disabled = true;
+          loadSlots();
         })
-        .catch(err => {
-          console.error(err);
-          const msg = document.getElementById('responseMessage');
-          msg.textContent = 'Kritischer Fehler beim Buchen.';
-          msg.className = 'error';
-          btn.disabled = false;
-          btn.textContent = 'Buchen';
-        });
+        .catch(() => showError('Kritischer Fehler beim Buchen.'));
     }
 
-    function toISO(dmy) {
-      const [d,m,y] = dmy.split('/'); return `${y}-${m}-${d}`;
+    function showError(msg) {
+      const el = document.getElementById('responseMessage');
+      el.textContent = msg;
+      el.className   = 'error';
     }
-    function fromISO(iso) {
-      const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`;
+    function showSuccess(msg) {
+      const el = document.getElementById('responseMessage');
+      el.textContent = msg;
+      el.className   = 'success';
     }
-
-    document.addEventListener('DOMContentLoaded', populateSlots);
   </script>
 </body>
 </html>
