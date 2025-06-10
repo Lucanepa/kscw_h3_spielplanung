@@ -52,7 +52,7 @@
     document.addEventListener('DOMContentLoaded', loadSlots);
 
     function loadSlots() {
-      fetch(`${WEB_APP_URL}?action=getSlots`)
+      fetch(`${WEB_APP_URL}&action=getSlots`)
         .then(r => r.json())
         .then(data => {
           slots = data;
